@@ -1,0 +1,5 @@
+# Pinned to minimum known-good versions rather than exact patches —
+# the unofficial TickTick client updates often; letting patch versions
+# float avoids re-pinning every few weeks while still keeping a floor.
+requests>=2.32.0,<3
+ticktick-py-v2>=0.1.0
