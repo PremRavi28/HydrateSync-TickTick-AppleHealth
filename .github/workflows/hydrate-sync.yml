@@ -1,0 +1,46 @@
+name: HydrateSync
+
+on:
+  schedule:
+    - cron: "55 23 * * *"   # 23:55 UTC daily — edit to taste
+  workflow_dispatch: {}      # manual "Run workflow" button — also how you backfill a gap
+
+permissions:
+  contents: write   # only scope that needs write: committing badge.json back to the repo below
+
+jobs:
+  sync:
+    name: Sync TickTick water habit to Gist
+    runs-on: ubuntu-latest
+    timeout-minutes: 5   # a hung run shouldn't burn Actions minutes indefinitely
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - run: pip install -r requirements.txt
+
+      - name: Run HydrateSync
+        env:
+          TICKTICK_USERNAME: ${{ secrets.TICKTICK_USERNAME }}
+          TICKTICK_PASSWORD: ${{ secrets.TICKTICK_PASSWORD }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          HABIT_NAME: "Drink Water"
+        run: python hydrate_sync.py
+
+      - name: Publish "last synced" badge
+        run: |
+          if git diff --quiet -- badge.json; then
+            echo "badge.json unchanged, nothing to commit"
+            exit 0
+          fi
+          git config user.name "hydrate-sync-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add badge.json
+          git commit -m "chore: update last-synced badge [skip ci]"
+          git push
