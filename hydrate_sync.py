@@ -88,7 +88,8 @@ def fetch_hydration_log(config: HydrateSyncConfig) -> tuple[dict[str, int], int 
     """
     from ticktick_v2.habits import TicktickHabitHandler
 
-    os.environ["TICKTICK_USERNAME"] = config.ticktick_username
+    # ticktick-py-v2 reads these two exact env var names internally.
+    os.environ["TICKTICK_EMAIL"] = config.ticktick_username
     os.environ["TICKTICK_PASSWORD"] = config.ticktick_password
 
     handler = TicktickHabitHandler()
