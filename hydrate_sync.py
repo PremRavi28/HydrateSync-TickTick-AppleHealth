@@ -92,24 +92,25 @@ def fetch_hydration_log(config: HydrateSyncConfig) -> tuple[dict[str, int], int 
     os.environ["TICKTICK_EMAIL"] = config.ticktick_username
     os.environ["TICKTICK_PASSWORD"] = config.ticktick_password
 
-    handler = TicktickHabitHandler()
-    habits = handler.get_habits()
-    habit = next((h for h in habits if getattr(h, "name", None) == config.habit_name), None)
-    if habit is None:
+    # The constructor already logs in and loads every habit's metadata into
+    # handler.habits (id -> metadata dict) and handler.habit_ids (name -> id) —
+    # there's no separate "list habits" call.
+    handler = TicktickHabitHandler(always_raise_exceptions=True)
+
+    habit_id = handler.habit_ids.get(config.habit_name)
+    if habit_id is None:
         log.error("Habit %r not found in this TickTick account.", config.habit_name)
         sys.exit(1)
+    habit_meta = handler.habits[habit_id]
 
-    since = datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)
-    checkins = handler.get_habit_checkins(habit, since=since)
+    since_stamp = int((datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)).strftime("%Y%m%d"))
+    all_checkins = handler.get_all_checkins(after_stamp=since_stamp, habit_names=[config.habit_name])
 
     days: dict[str, int] = {}
-    for entry in checkins:
-        stamp = getattr(entry, "stamp", None) or getattr(entry, "date", None)
-        value = getattr(entry, "value", None)
-        if stamp is not None and value is not None:
-            days[str(stamp)] = int(value)
+    for entry in (all_checkins or {}).get(habit_id, []):
+        days[str(entry.checkinStamp)] = int(entry.value)
 
-    return days, getattr(habit, "goal", None), getattr(habit, "unit", "Milliliter")
+    return days, habit_meta.get("goal"), habit_meta.get("unit", "Milliliter")
 
 
 def load_synced_log(session: requests.Session, config: HydrateSyncConfig) -> dict:
